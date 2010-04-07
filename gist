@@ -174,11 +174,11 @@ module Gist
 
   def copy(content)
     cmd = case true
-    when system("which pbcopy &> /dev/null")
+    when system("type pbcopy > /dev/null")
       :pbcopy
-    when system("which xclip &> /dev/null")
+    when system("type xclip > /dev/null")
       :xclip
-    when system("which putclip &> /dev/null")
+    when system("type putclip > /dev/null")
       :putclip
     end
 
@@ -199,27 +199,42 @@ private
   end
 
   def auth
-    user  = `git config --global github.user`.strip
-    token = `git config --global github.token`.strip
+    user  = config("github.user")
+    token = config("github.token")
 
     user.empty? ? {} : { :login => user, :token => token }
   end
 
   def defaults
-    priv = str_to_bool(`git config gist.private`.strip)
-    extension = `git config gist.extension`.strip
-    extension = nil if extension.empty?
+    priv = config("gist.private")
+    extension = config("gist.extension")
+    extension = nil if extension && extension.empty?
 
-    {"private" => priv,
-     "extension" => extension}
+    return {
+      "private"   => priv,
+      "extension" => extension
+    }
+  end
+
+  def config(key)
+    str_to_bool `git config --global #{key}`.strip
   end
 
   def str_to_bool(str)
-    case str.downcase
-    when "false", "0", "nil", ""
-      false
+    if str.size > 0 and str[0].chr == '!'
+      command = str[1, str.length]
+      value = `#{command}`
     else
+      value = str
+    end
+
+    case value.downcase.strip
+    when "false", "0", "nil", "", "no", "off"
+      nil
+    when "true", "1", "yes", "on"
       true
+    else
+      value
     end
   end
 end
